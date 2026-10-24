@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskPay Pro - Master Admin Command Center</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background-color: #090d16; }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .glass-header {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .modal-pop {
+      animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+</head>
+
+<body class="text-slate-200 antialiased font-sans flex min-h-screen">
+
+  <!-- ======================================================== -->
+  <!-- 1. ADMIN LOCK SCREEN                                     -->
+  <!-- ======================================================== -->
+  <div id="admin-gate-screen" class="fixed inset-0 z-50 bg-[#060911] flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-slate-900/90 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl backdrop-blur-xl">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-purple-600 mx-auto flex items-center justify-center text-white text-2xl shadow-lg shadow-indigo-500/20 mb-4">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2 class="text-xl font-black text-white tracking-tight">Admin Gatekeeper</h2>
+      <p class="text-xs text-slate-400 mt-1">Authorized platform administration only</p>
+
+      <form onsubmit="handleAdminLogin(event)" class="mt-6 space-y-4">
+        <div class="text-left">
+          <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Master Passcode</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500"><i class="fa-solid fa-key text-xs"></i></span>
+            <input type="password" id="gate-key" required placeholder="Enter passcode" class="w-full pl-9 pr-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition active:scale-95">
+          Authenticate & Open
+        </button>
+      </form>
+
+      <p class="text-[11px] text-slate-500 mt-5">Passkey: <strong class="text-brand-500 font-mono">admin75b21</strong></p>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 2. MAIN ADMIN SHELL                                      -->
+  <!-- ======================================================== -->
+  <div id="admin-shell" class="hidden flex-1 flex flex-col md:flex-row min-h-screen w-full">
+
+    <!-- Mobile Top Navigation Header -->
+    <div class="md:hidden glass-header px-4 py-3 border-b border-slate-800 flex items-center justify-between sticky top-0 z-40">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-extrabold text-xs">
+          <i class="fa-solid fa-crown text-[10px]"></i>
+        </div>
+        <span class="text-sm font-black text-white">TaskPay <span class="text-emerald-400">Admin</span></span>
+      </div>
+      <button onclick="toggleMobileMenu()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center text-xs">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar-menu" class="hidden md:flex w-full md:w-64 bg-slate-900 border-r border-slate-800 flex-col justify-between shrink-0 fixed md:static inset-0 z-50">
+      <div>
+        <!-- Brand Header (Desktop) -->
+        <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-indigo-500/20">
+              <i class="fa-solid fa-crown"></i>
+            </div>
+            <div>
+              <h1 class="text-sm font-black text-white leading-tight">TaskPay <span class="text-emerald-400">Pro</span></h1>
+              <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">nicely-75b21</span>
+            </div>
+          </div>
+          <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 text-sm"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="p-3 space-y-1 text-xs font-semibold">
+          <button onclick="switchSection('dashboard')" id="nav-dashboard" class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl bg-brand-600/10 text-brand-500 border border-brand-500/20 transition font-bold">
+            <i class="fa-solid fa-chart-pie w-4 text-center"></i>
+            <span>Overview Dashboard</span>
+          </button>
+
+          <button onclick="switchSection('submissions')" id="nav-submissions" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/60 hover:text-white transition">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-list-check w-4 text-center"></i>
+              <span>Task Proofs</span>
+            </div>
+            <span id="badge-pending-subms" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold text-[10px]">0</span>
+          </button>
+
+          <button onclick="switchSection('withdrawals')" id="nav-withdrawals" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/60 hover:text-white transition">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-money-bill-transfer w-4 text-center"></i>
+              <span>Cashout Requests</span>
+            </div>
+            <span id="badge-pending-withs" class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-bold text-[10px]">0</span>
+          </button>
+
+          <button onclick="switchSection('tasks')" id="nav-tasks" class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/60 hover:text-white transition">
+            <i class="fa-solid fa-layer-group w-4 text-center"></i>
+            <span>Manage Tasks</span>
+          </button>
+
+          <button onclick="switchSection('users')" id="nav-users" class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/60 hover:text-white transition">
+            <i class="fa-solid fa-users w-4 text-center"></i>
+            <span>Earners Ledger</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Footer Quick Tools -->
+      <div class="p-3 border-t border-slate-800 space-y-2">
+        <button onclick="seedDemoTasks()" class="w-full py-2 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+          <span>Seed 8 Demo Tasks</span>
+        </button>
+        <button onclick="lockAdminPanel()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-lock text-[11px]"></i>
+          <span>Lock Dashboard</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="flex-1 flex flex-col bg-[#090d16] overflow-hidden">
+      
+      <!-- Top Bar -->
+      <header class="glass-header px-6 py-4 border-b border-slate-800 hidden md:flex items-center justify-between">
+        <div>
+          <h2 id="section-title" class="text-sm font-extrabold text-white">Overview Dashboard</h2>
+          <p class="text-[11px] text-slate-400">Live bidirectional synchronization with Cloud Firestore</p>
+        </div>
+        <div class="flex items-center space-x-3">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> Firestore Connected
+          </span>
+          <button onclick="refreshLiveView()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-rotate text-[10px]"></i>
+            <span>Sync</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Container -->
+      <div class="flex-1 overflow-y-auto custom-scroll p-4 md:p-6 space-y-6">
+
+        <!-- ============================================== -->
+        <!-- SECTION 1: DASHBOARD OVERVIEW                  -->
+        <!-- ============================================== -->
+        <section id="sec-dashboard" class="space-y-6">
+          <!-- Metric Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Earners</span>
+              <div class="text-2xl font-black text-white mt-1" id="stat-total-users">0</div>
+              <div class="text-[10px] text-emerald-400 font-semibold mt-2 flex items-center">
+                <i class="fa-solid fa-user-check mr-1"></i> Registered Accounts
+              </div>
+              <i class="fa-solid fa-users absolute -right-2 -bottom-2 text-5xl text-slate-800/40 pointer-events-none"></i>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pending Proofs</span>
+              <div class="text-2xl font-black text-amber-400 mt-1" id="stat-pending-subms">0</div>
+              <div class="text-[10px] text-slate-400 mt-2">Awaiting verification</div>
+              <i class="fa-solid fa-hourglass-half absolute -right-2 -bottom-2 text-5xl text-slate-800/40 pointer-events-none"></i>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cashout Requests</span>
+              <div class="text-2xl font-black text-rose-400 mt-1" id="stat-pending-withs">0</div>
+              <div class="text-[10px] text-slate-400 mt-2">bKash, Nagad, Crypto</div>
+              <i class="fa-solid fa-money-bill-transfer absolute -right-2 -bottom-2 text-5xl text-slate-800/40 pointer-events-none"></i>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Tasks</span>
+              <div class="text-2xl font-black text-indigo-400 mt-1" id="stat-active-tasks">0</div>
+              <div class="text-[10px] text-slate-400 mt-2">Ready on earner app</div>
+              <i class="fa-solid fa-layer-group absolute -right-2 -bottom-2 text-5xl text-slate-800/40 pointer-events-none"></i>
+            </div>
+          </div>
+
+          <!-- Payout Metrics Row -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Approved Rewards</span>
+                <div class="text-3xl font-black text-emerald-400 mt-1">$<span id="stat-total-paid">0.00</span></div>
+                <p class="text-[11px] text-slate-500 mt-1">Verified task rewards directly credited to user balances</p>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-sack-dollar"></i>
+              </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Preset Engine</span>
+                <div class="text-xs font-bold text-slate-200 mt-1">Inject 8 standard tasks instantly</div>
+                <p class="text-[11px] text-slate-500 mt-1">Generates Gmail, Facebook, Instagram & Web tasks</p>
+              </div>
+              <button onclick="seedDemoTasks()" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl transition shrink-0 active:scale-95">
+                Seed Now
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- SECTION 2: SUBMISSIONS VERIFICATION            -->
+        <!-- ============================================== -->
+        <section id="sec-submissions" class="hidden space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Proof Submissions Under Review</h3>
+            <span class="text-xs text-brand-500 font-semibold" id="count-subms-view">0 Pending</span>
+          </div>
+
+          <div id="submissions-table-container" class="space-y-3">
+            <div class="text-center py-12 text-slate-500 text-xs">Loading pending proof submissions...</div>
+          </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- SECTION 3: CASHOUT REQUESTS                    -->
+        <!-- ============================================== -->
+        <section id="sec-withdrawals" class="hidden space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Pending Withdrawal Cashouts</h3>
+            <span class="text-xs text-rose-400 font-semibold" id="count-withs-view">0 Pending</span>
+          </div>
+
+          <div id="withdrawals-table-container" class="space-y-3">
+            <div class="text-center py-12 text-slate-500 text-xs">Loading cashout requests...</div>
+          </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- SECTION 4: TASK MANAGER                        -->
+        <!-- ============================================== -->
+        <section id="sec-tasks" class="hidden space-y-6">
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <h3 class="text-xs font-black uppercase tracking-wider text-white mb-4 flex items-center">
+              <i class="fa-solid fa-plus-circle text-brand-500 mr-2 text-sm"></i> Create New Micro Task
+            </h3>
+
+            <form onsubmit="handleCreateTask(event)" class="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
+              <div>
+                <label class="block font-bold text-slate-400 mb-1">Category</label>
+                <select id="task-cat-input" class="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-brand-500">
+                  <option value="Gmail">Gmail Tasks</option>
+                  <option value="Facebook">Facebook Tasks</option>
+                  <option value="Instagram">Instagram Tasks</option>
+                  <option value="Other">Other Tasks</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-400 mb-1">Reward ($ USD)</label>
+                <input type="number" step="0.01" min="0.05" id="task-reward-input" required placeholder="0.50" class="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-brand-500" />
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="block font-bold text-slate-400 mb-1">Title</label>
+                <input type="text" id="task-title-input" required placeholder="e.g. Subscribe to YouTube Channel" class="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-brand-500" />
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="block font-bold text-slate-400 mb-1">Destination Target Link</label>
+                <input type="url" id="task-link-input" required placeholder="https://..." class="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-brand-500" />
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="block font-bold text-slate-400 mb-1">Instructions</label>
+                <textarea id="task-instructions-input" rows="3" required placeholder="1. Click target link&#10;2. Subscribe and screenshot&#10;3. Upload confirmation" class="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-brand-500"></textarea>
+              </div>
+
+              <div class="md:col-span-2 pt-1">
+                <button type="submit" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition flex items-center space-x-1.5 active:scale-95">
+                  <i class="fa-solid fa-paper-plane text-xs"></i>
+                  <span>Publish Task Live</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Live Active Tasks</h3>
+            <div id="tasks-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div class="text-center py-10 text-slate-500 text-xs">Loading tasks...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- SECTION 5: USERS & WALLET LEDGER               -->
+        <!-- ============================================== -->
+        <section id="sec-users" class="hidden space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Registered Earner Accounts</h3>
+            <div class="relative max-w-xs w-full">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-xs"><i class="fa-solid fa-magnifying-glass"></i></span>
+              <input type="text" id="user-search-input" onkeyup="filterUsersList()" placeholder="Search phone, name or referral..." class="w-full pl-8 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-500" />
+            </div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-800/60 text-slate-400 font-bold border-b border-slate-800">
+                  <tr>
+                    <th class="p-3.5">User</th>
+                    <th class="p-3.5">Phone</th>
+                    <th class="p-3.5">Balance</th>
+                    <th class="p-3.5">Tasks Done</th>
+                    <th class="p-3.5">Referral Code</th>
+                    <th class="p-3.5 text-right">Adjust Balance</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body" class="divide-y divide-slate-800 text-slate-300">
+                  <tr><td colspan="6" class="p-6 text-center text-slate-500">Loading earners...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Screenshot Lightbox Modal -->
+  <div id="modal-image-view" onclick="if(event.target === this) closeProofModal()" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-4 space-y-3 modal-pop">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <h4 class="text-xs font-bold text-white">Submitted Screenshot Evidence</h4>
+        <button onclick="closeProofModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-sm"></i></button>
+      </div>
+      <div class="max-h-[70vh] overflow-auto rounded-xl bg-black/40 flex items-center justify-center p-2">
+        <img id="proof-image-elem" src="" class="max-w-full max-h-[65vh] object-contain rounded-lg" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 3. ADMIN CONTROLLER LOGIC                                -->
+  <!-- ======================================================== -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDu5H3J1Ai3T29yM4_T7fPNk3TbT3DTkaI",
+      authDomain: "nicely-75b21.firebaseapp.com",
+      databaseURL: "https://nicely-75b21-default-rtdb.firebaseio.com",
+      projectId: "nicely-75b21",
+      storageBucket: "nicely-75b21.firebasestorage.app",
+      messagingSenderId: "755756759281",
+      appId: "1:755756759281:android:f1ccea536f4c14e4b2d150"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.firestore();
+
+    let cachedSubmissions = [];
+    let cachedWithdrawals = [];
+    let cachedTasks = [];
+    let cachedUsers = [];
+
+    // Passcode Gatekeeper
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const key = document.getElementById('gate-key').value.trim();
+      if (key === 'admin75b21' || key === 'nicely75b21' || key === 'admin123') {
+        sessionStorage.setItem('taskpay_admin_auth', '1');
+        unlockDashboard();
+      } else {
+        Swal.fire('Access Denied', 'Invalid master passcode.', 'error');
+      }
+    }
+
+    function unlockDashboard() {
+      document.getElementById('admin-gate-screen').classList.add('hidden');
+      document.getElementById('admin-shell').classList.remove('hidden');
+      initRealtimeSync();
+    }
+
+    function lockAdminPanel() {
+      sessionStorage.removeItem('taskpay_admin_auth');
+      location.reload();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (sessionStorage.getItem('taskpay_admin_auth') === '1') {
+        unlockDashboard();
+      }
+    });
+
+    function toggleMobileMenu() {
+      const menu = document.getElementById('sidebar-menu');
+      menu.classList.toggle('hidden');
+      menu.classList.toggle('flex');
+    }
+
+    // Switch View
+    function switchSection(secId) {
+      const sections = ['dashboard', 'submissions', 'withdrawals', 'tasks', 'users'];
+      const titles = {
+        dashboard: 'Overview Dashboard',
+        submissions: 'Task Proofs Review',
+        withdrawals: 'Cashout Ledger & Processing',
+        tasks: 'Task Management Engine',
+        users: 'Earners Ledger & Balances'
+      };
+
+      sections.forEach(s => {
+        const sec = document.getElementById(`sec-${s}`);
+        const nav = document.getElementById(`nav-${s}`);
+        if (s === secId) {
+          sec.classList.remove('hidden');
+          nav.className = "w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl bg-brand-600/10 text-brand-500 border border-brand-500/20 transition font-bold";
+        } else {
+          sec.classList.add('hidden');
+          nav.className = "w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/60 hover:text-white transition";
+        }
+      });
+
+      document.getElementById('section-title').innerText = titles[secId];
+      if (window.innerWidth < 768) {
+        document.getElementById('sidebar-menu').classList.add('hidden');
+        document.getElementById('sidebar-menu').classList.remove('flex');
+      }
+    }
+
+    // Realtime Data Watchers
+    function initRealtimeSync() {
+      // 1. Task Submissions
+      db.collection('taskSubmissions').onSnapshot(snap => {
+        cachedSubmissions = [];
+        snap.forEach(d => cachedSubmissions.push({ id: d.id, ...d.data() }));
+        renderSubmissions();
+        updateDashboardCounters();
+      });
+
+      // 2. Withdrawal Requests
+      db.collection('withdrawalRequests').onSnapshot(snap => {
+        cachedWithdrawals = [];
+        snap.forEach(d => cachedWithdrawals.push({ id: d.id, ...d.data() }));
+        renderWithdrawals();
+        updateDashboardCounters();
+      });
+
+      // 3. Tasks
+      db.collection('tasks').onSnapshot(snap => {
+        cachedTasks = [];
+        snap.forEach(d => cachedTasks.push({ id: d.id, ...d.data() }));
+        renderTasksList();
+        updateDashboardCounters();
+      });
+
+      // 4. Users
+      db.collection('users').onSnapshot(snap => {
+        cachedUsers = [];
+        snap.forEach(d => cachedUsers.push({ id: d.id, ...d.data() }));
+        renderUsersTable(cachedUsers);
+        updateDashboardCounters();
+      });
+    }
+
+    function refreshLiveView() {
+      Swal.fire({
+        title: 'Refreshing snapshot...',
+        timer: 600,
+        didOpen: () => Swal.showLoading(),
+        showConfirmButton: false
+      });
+    }
+
+    function updateDashboardCounters() {
+      const pendingSubms = cachedSubmissions.filter(s => s.status === 'Under Review').length;
+      const pendingWiths = cachedWithdrawals.filter(w => w.status === 'Pending').length;
+
+      document.getElementById('stat-total-users').innerText = cachedUsers.length;
+      document.getElementById('stat-pending-subms').innerText = pendingSubms;
+      document.getElementById('badge-pending-subms').innerText = pendingSubms;
+      document.getElementById('count-subms-view').innerText = `${pendingSubms} Pending`;
+
+      document.getElementById('stat-pending-withs').innerText = pendingWiths;
+      document.getElementById('badge-pending-withs').innerText = pendingWiths;
+      document.getElementById('count-withs-view').innerText = `${pendingWiths} Pending`;
+
+      document.getElementById('stat-active-tasks').innerText = cachedTasks.length;
+
+      const totalPaid = cachedSubmissions
+        .filter(s => s.status === 'Approved')
+        .reduce((sum, s) => sum + (parseFloat(s.reward) || 0), 0);
+      document.getElementById('stat-total-paid').innerText = totalPaid.toFixed(2);
+    }
+
+    // -------------------------------------------------------------
+    // TASK SUBMISSIONS VERIFICATION
+    // -------------------------------------------------------------
+    function renderSubmissions() {
+      const container = document.getElementById('submissions-table-container');
+      const pendings = cachedSubmissions.filter(s => s.status === 'Under Review');
+
+      if (!pendings.length) {
+        container.innerHTML = `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-500 text-xs">
+            <i class="fa-solid fa-circle-check text-2xl text-emerald-500/40 mb-2"></i>
+            <p>All submitted tasks have been reviewed.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = pendings.map(s => {
+        const file = s.fileUrl || s.proofFileUrl;
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-white">${s.taskTitle}</span>
+                <span class="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">+$${Number(s.reward).toFixed(2)}</span>
+              </div>
+              <div class="text-[11px] text-slate-400">
+                User: <strong class="text-slate-200">${s.userName}</strong> (${s.userPhone})
+              </div>
+              <div class="text-xs text-brand-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80">
+                <strong class="text-slate-400">Proof Details:</strong> ${s.proofText || 'None provided'}
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2 shrink-0 w-full md:w-auto">
+              ${file ? `
+                <button onclick="viewProofImage('${file}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition flex items-center space-x-1">
+                  <i class="fa-regular fa-image"></i>
+                  <span>Screenshot</span>
+                </button>
+              ` : ''}
+
+              <button onclick="actionSubmission('${s.id}', true, '${s.userId}', ${s.reward})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center space-x-1 active:scale-95">
+                <i class="fa-solid fa-check"></i>
+                <span>Approve</span>
+              </button>
+
+              <button onclick="actionSubmission('${s.id}', false, '${s.userId}', ${s.reward})" class="px-3 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-bold rounded-xl transition active:scale-95">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function actionSubmission(subId, approve, userId, reward) {
+      try {
+        const status = approve ? 'Approved' : 'Rejected';
+        await db.collection('taskSubmissions').doc(subId).update({
+          status: status,
+          reviewedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        const userRef = db.collection('users').doc(userId);
+        if (approve) {
+          await userRef.update({
+            balance: firebase.firestore.FieldValue.increment(reward),
+            totalEarned: firebase.firestore.FieldValue.increment(reward),
+            pendingEarnings: firebase.firestore.FieldValue.increment(-reward),
+            completedTasks: firebase.firestore.FieldValue.increment(1)
+          });
+        } else {
+          await userRef.update({
+            pendingEarnings: firebase.firestore.FieldValue.increment(-reward)
+          });
+        }
+
+        Swal.fire('Updated', `Submission marked as ${status}.`, 'success');
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+
+    function viewProofImage(url) {
+      document.getElementById('proof-image-elem').src = url;
+      document.getElementById('modal-image-view').classList.remove('hidden');
+    }
+
+    function closeProofModal() {
+      document.getElementById('modal-image-view').classList.add('hidden');
+    }
+
+    // -------------------------------------------------------------
+    // WITHDRAWALS CASH-OUT LEDGER
+    // -------------------------------------------------------------
+    function renderWithdrawals() {
+      const container = document.getElementById('withdrawals-table-container');
+      const pendings = cachedWithdrawals.filter(w => w.status === 'Pending');
+
+      if (!pendings.length) {
+        container.innerHTML = `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-500 text-xs">
+            <i class="fa-solid fa-wallet text-2xl text-slate-700 mb-2"></i>
+            <p>No cashout requests pending.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = pendings.map(w => `
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-black text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full">$${Number(w.amount).toFixed(2)}</span>
+              <span class="text-xs font-bold text-white">${w.method}: ${w.accountNumber}</span>
+            </div>
+            <div class="text-[11px] text-slate-400">
+              User: <strong class="text-slate-200">${w.userName}</strong> (${w.userPhone})
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2 shrink-0 w-full md:w-auto">
+            <button onclick="actionWithdrawal('${w.id}', true, '${w.userId}', ${w.amount})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center space-x-1 active:scale-95">
+              <i class="fa-solid fa-check"></i>
+              <span>Mark Paid</span>
+            </button>
+            <button onclick="actionWithdrawal('${w.id}', false, '${w.userId}', ${w.amount})" class="px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-bold rounded-xl transition flex items-center space-x-1 active:scale-95">
+              <i class="fa-solid fa-rotate-left"></i>
+              <span>Decline & Refund</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function actionWithdrawal(reqId, approve, userId, amount) {
+      const conf = await Swal.fire({
+        title: approve ? 'Confirm Payment Sent?' : 'Decline and Refund Funds?',
+        text: approve ? 'User status will be updated to Approved.' : 'Funds will be refunded back to the user balance.',
+        icon: approve ? 'question' : 'warning',
+        showCancelButton: true,
+        confirmButtonColor: approve ? '#10b981' : '#f43f5e',
+        confirmButtonText: approve ? 'Yes, Paid' : 'Yes, Refund'
+      });
+
+      if (!conf.isConfirmed) return;
+
+      try {
+        const status = approve ? 'Approved' : 'Rejected';
+        await db.collection('withdrawalRequests').doc(reqId).update({
+          status: status,
+          processedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        if (!approve) {
+          await db.collection('users').doc(userId).update({
+            balance: firebase.firestore.FieldValue.increment(amount)
+          });
+        }
+
+        Swal.fire('Updated', `Cashout marked as ${status}.`, 'success');
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // TASK CREATION & CRUD
+    // -------------------------------------------------------------
+    async function handleCreateTask(e) {
+      e.preventDefault();
+      const cat = document.getElementById('task-cat-input').value;
+      const title = document.getElementById('task-title-input').value.trim();
+      const reward = parseFloat(document.getElementById('task-reward-input').value);
+      const link = document.getElementById('task-link-input').value.trim();
+      const instructions = document.getElementById('task-instructions-input').value.trim();
+
+      try {
+        await db.collection('tasks').add({
+          category: cat,
+          title: title,
+          reward: reward,
+          link: link,
+          instructions: instructions,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        Swal.fire('Created', 'Task is now live on the earner application.', 'success');
+        e.target.reset();
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+
+    function renderTasksList() {
+      const container = document.getElementById('tasks-list-container');
+      if (!cachedTasks.length) {
+        container.innerHTML = `<div class="p-6 text-slate-500 text-xs">No active tasks found in database.</div>`;
+        return;
+      }
+
+      container.innerHTML = cachedTasks.map(t => `
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded-full">${t.category}</span>
+              <span class="text-xs font-black text-emerald-400">+$${Number(t.reward).toFixed(2)}</span>
+            </div>
+            <h4 class="text-xs font-bold text-white pt-1">${t.title}</h4>
+            <p class="text-[11px] text-slate-400 line-clamp-2">${t.instructions}</p>
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+            <a href="${t.link}" target="_blank" class="text-xs text-brand-400 underline font-semibold">Test Link</a>
+            <button onclick="deleteTask('${t.id}')" class="px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs font-bold transition">
+              <i class="fa-solid fa-trash text-[10px] mr-1"></i> Delete
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function deleteTask(taskId) {
+      const conf = await Swal.fire({
+        title: 'Delete Task?',
+        text: 'This will remove it from all users immediately.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#f43f5e'
+      });
+      if (conf.isConfirmed) {
+        await db.collection('tasks').doc(taskId).delete();
+        Swal.fire('Deleted', 'Task removed.', 'success');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // USERS DIRECTORY & BALANCE EDITING
+    // -------------------------------------------------------------
+    function renderUsersTable(list) {
+      const tbody = document.getElementById('users-table-body');
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">No users found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(u => `
+        <tr class="hover:bg-slate-800/30 transition">
+          <td class="p-3.5 font-bold text-white">${u.fullName || 'User'}</td>
+          <td class="p-3.5 font-mono text-slate-300">${u.phone || 'N/A'}</td>
+          <td class="p-3.5 font-black text-emerald-400">$${(u.balance || 0).toFixed(2)}</td>
+          <td class="p-3.5 font-bold text-slate-300">${u.completedTasks || 0}</td>
+          <td class="p-3.5 font-mono text-brand-400">${u.referralCode || 'N/A'}</td>
+          <td class="p-3.5 text-right">
+            <button onclick="editUserBalance('${u.id}', ${u.balance || 0})" title="Adjust Balance" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterUsersList() {
+      const query = document.getElementById('user-search-input').value.toLowerCase();
+      const filtered = cachedUsers.filter(u => 
+        (u.phone && u.phone.toLowerCase().includes(query)) ||
+        (u.fullName && u.fullName.toLowerCase().includes(query)) ||
+        (u.referralCode && u.referralCode.toLowerCase().includes(query))
+      );
+      renderUsersTable(filtered);
+    }
+
+    async function editUserBalance(userId, currentBalance) {
+      const { value: newBal } = await Swal.fire({
+        title: 'Adjust User Balance',
+        input: 'number',
+        inputValue: currentBalance,
+        inputAttributes: { step: '0.01' },
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        confirmButtonText: 'Update'
+      });
+
+      if (newBal !== null && !isNaN(newBal)) {
+        await db.collection('users').doc(userId).update({
+          balance: parseFloat(newBal)
+        });
+        Swal.fire('Updated', 'Balance adjusted.', 'success');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // SEED 8 PRESET TASKS
+    // -------------------------------------------------------------
+    async function seedDemoTasks() {
+      const presets = [
+        { category: 'Gmail', title: 'Subscribe to Weekly Tech Newsletter', reward: 0.75, link: 'https://news.google.com', instructions: '1. Click target link and subscribe.\n2. Submit confirmation screenshot.' },
+        { category: 'Gmail', title: 'Google Maps Business 5-Star Rating', reward: 1.25, link: 'https://maps.google.com', instructions: '1. Leave a 5-star rating with genuine feedback.\n2. Upload review screenshot.' },
+        { category: 'Facebook', title: 'Follow Official Facebook Page', reward: 0.50, link: 'https://facebook.com', instructions: '1. Follow page.\n2. Submit your Facebook profile link.' },
+        { category: 'Facebook', title: 'Share Campaign Post to Public Feed', reward: 0.85, link: 'https://facebook.com', instructions: '1. Share post publicly.\n2. Submit shared post URL.' },
+        { category: 'Instagram', title: 'Follow Creator & Like Latest 3 Reels', reward: 0.90, link: 'https://instagram.com', instructions: '1. Follow target handle.\n2. Like top 3 reels and enter username.' },
+        { category: 'Instagram', title: 'Post Positive Comment on Viral Reel', reward: 0.65, link: 'https://instagram.com', instructions: '1. Leave a 4+ word positive comment.\n2. Submit handle.' },
+        { category: 'Other', title: 'Complete Quick 2-Minute Feedback Form', reward: 1.80, link: 'https://surveys.google.com', instructions: '1. Answer 5 quick questions.\n2. Upload completion screenshot.' },
+        { category: 'Other', title: 'Explore Sponsor Platform for 60 Seconds', reward: 1.10, link: 'https://google.com', instructions: '1. Stay active on site for 60 seconds.\n2. Type the main headline in remarks.' }
+      ];
+
+      Swal.fire({ title: 'Injecting tasks into Firestore...', didOpen: () => Swal.showLoading() });
+      try {
+        const batch = db.batch();
+        presets.forEach(t => {
+          const doc = db.collection('tasks').doc();
+          batch.set(doc, { ...t, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        });
+        await batch.commit();
+        Swal.fire('Success', '8 demo tasks seeded into database!', 'success');
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>
